@@ -36,11 +36,9 @@ int cmd_exit(const char **);
 
 int cmd_pwd(const char **);
 
-static built_in_cmd commands[] = {
-        {cmd_cd,   0, 1, "cd"},
-        {cmd_exit, 0, 1, "exit"},
-        {cmd_pwd,  0, 0, "pwd"}
-};
+int cmd_test(const char **);
+
+int cmd_exec(const char **);
 
 int exec_or_run(char *line);
 

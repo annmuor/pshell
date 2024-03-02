@@ -6,10 +6,23 @@ static struct termios original;
 static char *prompt = NULL;
 static int prompt_len = 0;
 
+static char *prev_input_line = NULL;
+static int prev_input_len;
+
+static char *next_input_line = NULL;
+static int next_input_len;
+
 static char *input_line = NULL;
 static int input_len;
 static int input_cur;
 
+static built_in_cmd commands[] = {
+        {cmd_cd,   0, 1, "cd"},
+        {cmd_exit, 0, 1, "exit"},
+        {cmd_pwd,  0, 0, "pwd"},
+        {cmd_test,  0, 2, "test"},
+        {cmd_exec,  0, 3, "exec"}
+};
 
 void refresh() {
     write(STDOUT_FILENO, "\x1b[2K\x1b[0G", 8);
@@ -26,7 +39,23 @@ void refresh() {
     fflush(stdout);
 }
 
+void update_prev_and_next_cmd(void) {
+    prev_input_len = 0;
+    next_input_line = 0;
+    if (prev_input_line != NULL) {
+        free(prev_input_line);
+    }
+    if(next_input_line != NULL) {
+        free(next_input_line);
+    }
+    if (input_line != NULL) {
+        prev_input_line = strdup(input_line);
+        prev_input_len = input_len;
+    }
+}
+
 void new_input() {
+    update_prev_and_next_cmd();
     if (input_line != NULL) {
         free(input_line);
     }
@@ -54,6 +83,37 @@ void append(char c) {
         free(tmp);
     }
 }
+
+
+void update_cur_input_after_arrow(void) {
+    input_cur = input_len + prompt_len + 1;
+}
+
+void up() {
+    if (prev_input_line != NULL) {
+        next_input_line = input_line;
+        next_input_len = input_len;
+        input_line = prev_input_line;
+        input_len = prev_input_len;
+        prev_input_line = NULL;
+        prev_input_len = 0;
+        update_cur_input_after_arrow();
+    }
+}
+
+
+void down() {
+    if (next_input_line != NULL) {
+        prev_input_line = input_line;
+        prev_input_len = input_len;
+        input_line = next_input_line;
+        input_len = next_input_len;
+        next_input_line = NULL;
+        next_input_len = 0;
+        update_cur_input_after_arrow();
+    }
+}
+
 
 void left() {
     input_cur--;
@@ -118,7 +178,8 @@ void delete() {
     input_cur--;
 }
 
-int main(int argc, char **argv, char **env) {
+
+int main() {
     if (!isatty(STDIN_FILENO)) {
         printf("Primitive Shell works only on TTY\n");
         return -1;
@@ -169,8 +230,24 @@ int main(int argc, char **argv, char **env) {
                     }
                     in_loop = 0;
                     break;
+                case 8:
                 case 127: // BACKSPACE
                     backspace();
+                    break;
+                case 23: // CTRL+W
+                {
+                    int last_space = 0;
+
+                    int i;
+                    for(i = input_len - 1; i >= 0; i--) {
+                        if(input_line[i] == ' ') {
+                            last_space = i;
+                            break;
+                        }
+                    }
+                    memmove(&input_line[last_space], "\0", last_space);
+                    input_len = last_space;
+                }
                     break;
                 case 27: // ESCAPE STUFF
                 {
@@ -204,6 +281,12 @@ int main(int argc, char **argv, char **env) {
                                 case 'F':
                                     end();
                                     break;
+                                case 'A':
+                                    up();
+                                    break;
+                                case 'B':
+                                    down();
+                                    break;
                                 default:
                                     break;
                             }
@@ -222,6 +305,7 @@ int main(int argc, char **argv, char **env) {
                         }
                     }
                 }
+                    break;
                 default:
                     if (isprint(c)) {
                         append(c);
@@ -272,10 +356,10 @@ int raw_mode_off(void) {
 
 void exit_function(void) {
     raw_mode_off();
-};
+}
 
 int cmd_cd(const char **args) {
-    char *where = args[1];
+    char *where = (char *) args[1];
     if (where == NULL) {
         where = getenv("HOME");
     }
@@ -295,7 +379,32 @@ int cmd_exit(const char **args) {
     }
 }
 
-int cmd_pwd(const char **_any) {
+// int cmd_test(const char **args) {
+//     if (args[1] != NULL) {
+//         const char *flag = args[1];
+//         if (strcmp(flag, "-e") == 0) {
+//             if (args[2] != NULL) {
+//                 const char *file = args[2];
+//                 char cwd[FILENAME_MAX];
+//                 if (getcwd(cwd, FILENAME_MAX) == NULL) {
+//                     perror("getcwd failed");
+//                     return -1;
+//                 }
+//                 if (access(file, F_OK) != -1) {
+//                     return 0;
+//                 } else {
+//                     return 1;
+//                 }
+//             } else { return 1; }
+//         }
+//         // Could be other flags
+//     } else { return 1; }
+//     return 0;
+// }
+
+int cmd_pwd(const char **arg) {
+    if (arg == NULL)
+        return -1;
     char cwd[FILENAME_MAX];
     if (getcwd(cwd, FILENAME_MAX) == NULL) {
         perror("getcwd failed");
@@ -303,6 +412,147 @@ int cmd_pwd(const char **_any) {
     }
     printf("%s\r\n", cwd);
     return 0;
+}
+
+int cmd_test(const char **args) {
+    const char *arg1 = args[1];
+    // 0 arguments:
+    // Exit false(1)
+    if (arg1 == NULL) {
+        return 1;
+    }
+    const char *arg2 = args[2];
+
+    // 1 argument
+    // Exit true(0) if $1 is not null; otherwise, exit false.
+    if (arg2 == NULL) {
+        return 0;
+    }
+    const char *arg3 = args[3];
+
+    // 2 arguments:
+    // If $1 is '!', exit true if $2 is null, false if $2 is not null.
+    // If $1 is a unary primary, exit true if the unary test is true, false if the unary test is false.
+    // Otherwise, produce unspecified results
+    if (arg3 == NULL) {
+        if (strcmp(arg1, "!") == 0) {
+            return 1;
+        }
+        if (strlen(arg1) != 2) {
+            printf("Unary primary should consist of two characters!\n");
+            return 1;
+        }
+        if (arg1[0] != '-') {
+            printf("Unary primary should start with '-'!\n");
+        }
+        printf("switch\n");
+        switch(arg1[1]) {
+            case 'b':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'c':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'd':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'e':
+                printf("e\n");
+                if (args[2] != NULL) {
+                    const char *file = args[2];
+                    char cwd[FILENAME_MAX];
+                    if (getcwd(cwd, FILENAME_MAX) == NULL) {
+                        perror("getcwd failed");
+                        return -1;
+                    }
+                    if (access(file, F_OK) != -1) {
+                        return 0;
+                    } else {
+                        return 1;
+                    }
+                } else { return 1; }
+            case 'f':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'g':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'h':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'L':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'n':
+                if (strlen(arg2) == 0) {
+                    return 1;
+                }
+                return 0;
+            case 'p':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'r':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'S':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 's':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 't':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'u':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'w':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'x':
+                printf("%s is not implemented\n", arg1);
+                return 1;
+            case 'z':
+                if (strlen(arg2) == 0) {
+                    return 0;
+                }
+                return 1;
+            default:
+                printf("%s unary primary is not in POSIX standart!", arg1);
+                return 1;
+        }
+        printf("The command is not implemented: %s\n", arg1);
+        return 1;
+    }
+    
+    const char *arg4 = args[4];
+
+    // 3 arguments:
+    // If $2 is a binary primary, perform the binary test of $1 and $3.
+    // If $1 is '!', negate the two-argument test of $2 and $3.
+    // If  $1  is '(' and $3 is ')', perform the unary test of $2. On systems that do not 
+    // support the XSI option, the results are unspecified if $1 is '(' and $3 is ')'.
+    // Otherwise, produce unspecified results
+    if (arg4 == NULL) {
+        if (strcmp(arg1, "!")) {
+            const char *new_args[4] = {args[0], args[2], args[3], NULL};
+            if (cmd_test(new_args) == 0) {
+                return 1;
+            }
+            else {
+                return 0;
+            }
+        }
+    }
+
+    return 0;
+}
+
+int cmd_exec(const char ** _any) {
+    char **argv = (char **)&_any[1];
+    execvp(*argv, argv);
+    perror("exec error");
+    return -1;
 }
 
 
@@ -317,10 +567,11 @@ int exec_or_run(char *line) {
         }
         update_parsed_command(cmd);
         cmds = realloc(cmds, sizeof(parsed_command *) * (cmds_len + 1));
+	if (cmds == NULL) {
+	    return -1;
+	}
         cmds[cmds_len++] = cmd;
-        printf("sline = %s\n", *sline);
     }
-    fprintf(stderr, "got %d cmds\n", cmds_len);
     if (cmds == NULL) {
         return -1;
     }
@@ -331,22 +582,28 @@ int exec_or_run(char *line) {
                 perror("pipe");
                 goto out;
             }
-            if (cmds[i] != NULL) {
+
+	    if (cmds[i] != NULL && cmds[i + 1] != NULL) {
                 if (cmds[i]->stdout != STDOUT_FILENO)
                     close(cmds[i]->stdout);
+                if (cmds[i + 1]->stdin != STDIN_FILENO)
+                    close(cmds[i + 1]->stdin);
                 cmds[i]->stdout = pipefd[1];
-                if (cmds[i + 1] != NULL) {
-                    if (cmds[i + 1]->stdin != STDIN_FILENO)
-                        close(cmds[i + 1]->stdin);
-                    cmds[i + 1]->stdin = pipefd[0];
-                }
-            }
+                cmds[i + 1]->stdin = pipefd[0];
+            } else {
+	        close(pipefd[0]);
+		close(pipefd[1]);
+	    }
         }
     }
 
     for (int i = 0; i < cmds_len; i++) {
-        if (do_fork_exec(cmds[i]) == -1) {
+        int exit_code = do_fork_exec(cmds[i]);
+        if (exit_code == -1) {
+            fprintf(stderr, "command %s returned -1\n", cmds[i]->cmd);
             goto out; // we don't continue if something is broken
+        } else {
+            fprintf(stderr, "command %s returned %d\n", cmds[i]->cmd, exit_code);
         }
     }
 
@@ -356,13 +613,14 @@ int exec_or_run(char *line) {
             parsed_command_cleanup(cmds[i]);
     }
     free(cmds);
+    return 0;
 }
 
 int do_fork_exec(parsed_command *cmd) {
     int (*func)(const char **) = NULL;
-    for (int i = 0; i < sizeof(commands) / sizeof(built_in_cmd); i++) {
+    for (size_t i = 0; i < sizeof(commands) / sizeof(built_in_cmd); i++) {
         if (strcmp(cmd->cmd, commands[i].command) == 0) {
-            if (cmd->max_args > commands[i].max_args || cmd->max_args < commands[i].min_args) {
+            if (cmd->max_args - 1 > commands[i].max_args || cmd->max_args - 1 < commands[i].min_args) {
                 fprintf(stderr, "Insuffient number of arguments (%d) for command %s\r\n", cmd->max_args,
                         commands[i].command);
                 return -1;
@@ -372,7 +630,11 @@ int do_fork_exec(parsed_command *cmd) {
             }
         }
     }
-    fprintf(stderr, "command = %s\n", cmd->cmd);
+    fprintf(stderr, "command = [%s] ", cmd->cmd);
+    fprintf(stderr, "args = %d ", cmd->max_args);
+    fprintf(stderr, "stdin = %d ", cmd->stdin);
+    fprintf(stderr, "stdout =%d ", cmd->stdout);
+    fprintf(stderr, "\n\n");
     if (func != NULL) {
         return func((const char **) cmd->args);
     }
@@ -400,6 +662,15 @@ int do_fork_exec(parsed_command *cmd) {
         perror("execvp");
         exit(-1);
     } else {
+        if (cmd->stdin != STDIN_FILENO) {
+            close(cmd->stdin);
+        }
+        if (cmd->stdout != STDOUT_FILENO) {
+            close(cmd->stdout);
+        }
+        if (cmd->stderr != STDERR_FILENO) {
+            close(cmd->stderr);
+        }
         if (cmd->background) {
             return 0;
         }
@@ -441,9 +712,9 @@ void prepare_prompt(void) {
     if (prompt != NULL) {
         free(prompt);
     }
-    prompt = (char *) malloc(FILENAME_MAX);
-    memset(prompt, 0, FILENAME_MAX);
-    snprintf(prompt, FILENAME_MAX, "[%s %s]%c ",
+    prompt = (char *) malloc(FILENAME_MAX * 2);
+    memset(prompt, 0, FILENAME_MAX * 2);
+    snprintf(prompt, FILENAME_MAX * 2, "[%s %s]%c ",
              user, &cwd[cwd_idx], uid == 0 ? '#' : '$');
     prompt_len = strlen(prompt);
 }
