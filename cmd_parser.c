@@ -37,6 +37,9 @@ parsed_command *parse_command(char **line) {
                         }
                         // zero arg is program itself
                         command->args = realloc(command->args, sizeof(char *) * (command->nargs + 1));
+			if (command->args == NULL) {
+			    goto error;
+			}
                         command->args[command->nargs++] = strdup(buf);
                         memset(buf, 0, MAX_LINE_SIZE);
                         bufc = 0;
@@ -97,11 +100,21 @@ parsed_command *parse_command(char **line) {
             command->cmd = strdup(buf);
         }
         command->args = realloc(command->args, sizeof(char *) * (command->nargs + 1));
+	if (command->args == NULL) {
+	    goto error;
+	}
         command->args[command->nargs++] = strdup(buf);
     }
     command->args = realloc(command->args, sizeof(char *) * (command->nargs + 1));
+    if (command->args == NULL) {
+        goto error;
+    }
     command->args[command->nargs] = NULL;
     return command;
+
+error:
+    free(command);
+    return NULL;
 }
 
 void update_parsed_command(parsed_command *cmd) {
