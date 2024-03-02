@@ -34,8 +34,6 @@ int cmd_cd(const char **);
 
 int cmd_exit(const char **);
 
-int cmd_pwd(const char **);
-
 int cmd_test(const char **);
 
 static built_in_cmd commands[] = {
@@ -44,6 +42,7 @@ static built_in_cmd commands[] = {
         {cmd_pwd,  0, 0, "pwd"},
         {cmd_test, 1, 4, "test"}
 };
+int cmd_pwd(const char **);
 
 int exec_or_run(char *line);
 

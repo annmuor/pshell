@@ -8,11 +8,11 @@ parsed_command *parse_command(char **line) {
     char buf[MAX_LINE_SIZE];
     int bufc = 0;
     parsed_command *command = malloc(sizeof(parsed_command));
-    memset(buf, 0, MAX_LINE_SIZE);
-    memset(command, 0, sizeof(parsed_command));
     if (command == NULL) {
         return NULL;
     }
+    memset(buf, 0, MAX_LINE_SIZE);
+    memset(command, 0, sizeof(parsed_command));
     command->stdout = STDOUT_FILENO;
     command->stderr = STDERR_FILENO;
     command->stdin = STDIN_FILENO;
@@ -85,17 +85,22 @@ parsed_command *parse_command(char **line) {
     if (i == line_len) {
         *line = NULL;
     } else {
-        *line = &current[i + 1];
+        int next_non_space = i;
+        while(current[next_non_space] == ' ') {
+            next_non_space++;
+            break;
+        }
+        *line = &current[next_non_space];
     }
     if (bufc > 0) {
         if (command->cmd == NULL) {
             command->cmd = strdup(buf);
-        } else {
-            command->args = realloc(command->args, sizeof(char *) * (command->nargs + 1));
-            command->args[command->nargs++] = strdup(buf);
         }
+        command->args = realloc(command->args, sizeof(char *) * (command->nargs + 1));
+        command->args[command->nargs++] = strdup(buf);
     }
-
+    command->args = realloc(command->args, sizeof(char *) * (command->nargs + 1));
+    command->args[command->nargs] = NULL;
     return command;
 }
 
@@ -125,7 +130,7 @@ void update_parsed_command(parsed_command *cmd) {
             }
         } else if (strncmp(arg, ">", 1) == 0) {
             started_special = 1;
-            mode = O_CREAT | O_WRONLY;
+            mode = O_CREAT | O_WRONLY | O_TRUNC;
             if (strlen(arg) == 1) {
                 wait_stdout = 1;
             } else {
@@ -153,7 +158,7 @@ void update_parsed_command(parsed_command *cmd) {
 
         } else if (strncmp(arg, "2>", 2) == 0) {
             started_special = 1;
-            mode = O_CREAT | O_WRONLY;
+            mode = O_CREAT | O_WRONLY | O_TRUNC;
             if (strlen(arg) == 2) {
                 wait_stderr = 1;
             } else {
