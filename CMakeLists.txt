@@ -11,6 +11,7 @@ add_executable(pshell
         cmd_parser.c)
 
 set(SANITIZE_FLAGS "-fsanitize=address,undefined")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -Werror")
 
 include(CheckCCompilerFlag)
 CHECK_C_COMPILER_FLAG("${SANITIZE_FLAGS}" COMPILER_SUPPORTS_SANITIZERS)
