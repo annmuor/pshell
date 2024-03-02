@@ -90,10 +90,9 @@ parsed_command *parse_command(char **line) {
     if (bufc > 0) {
         if (command->cmd == NULL) {
             command->cmd = strdup(buf);
-        } else {
-            command->args = realloc(command->args, sizeof(char *) * (command->nargs + 1));
-            command->args[command->nargs++] = strdup(buf);
         }
+        command->args = realloc(command->args, sizeof(char *) * (command->nargs + 1));
+        command->args[command->nargs++] = strdup(buf);
     }
     command->args = realloc(command->args, sizeof(char *) * (command->nargs + 1));
     command->args[command->nargs] = NULL;

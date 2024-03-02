@@ -129,7 +129,7 @@ int main(int argc, char **argv, char **env) {
             if (n == 0) {
                 continue;
             }
-	    //printf("gotchar: %d\n", c);
+            //printf("gotchar: %d\n", c);
             switch (c) {
                 case 3: // CTRL+C
                     new_input();
@@ -148,7 +148,8 @@ int main(int argc, char **argv, char **env) {
                     }
                     in_loop = 0;
                     break;
-		case 8: case 127: // BACKSPACE
+                case 8:
+                case 127: // BACKSPACE
                     backspace();
                     break;
                 case 27: // ESCAPE STUFF
@@ -356,7 +357,7 @@ int do_fork_exec(parsed_command *cmd) {
     int (*func)(const char **) = NULL;
     for (int i = 0; i < sizeof(commands) / sizeof(built_in_cmd); i++) {
         if (strcmp(cmd->cmd, commands[i].command) == 0) {
-            if (cmd->max_args > commands[i].max_args || cmd->max_args < commands[i].min_args) {
+            if (cmd->max_args - 1 > commands[i].max_args || cmd->max_args - 1 < commands[i].min_args) {
                 fprintf(stderr, "Insuffient number of arguments (%d) for command %s\r\n", cmd->max_args,
                         commands[i].command);
                 return -1;
