@@ -381,6 +381,9 @@ int exec_or_run(char *line) {
         }
         update_parsed_command(cmd);
         cmds = realloc(cmds, sizeof(parsed_command *) * (cmds_len + 1));
+	if (cmds == NULL) {
+	    return -1;
+	}
         cmds[cmds_len++] = cmd;
     }
     if (cmds == NULL) {
