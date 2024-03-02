@@ -82,7 +82,11 @@ parsed_command *parse_command(char **line) {
                 buf[bufc++] = c;
         }
     }
-    *line = &current[i + 1];
+    if (i == line_len) {
+        *line = NULL;
+    } else {
+        *line = &current[i + 1];
+    }
     if (bufc > 0) {
         if (command->cmd == NULL) {
             command->cmd = strdup(buf);

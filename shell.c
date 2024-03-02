@@ -280,7 +280,7 @@ int exec_or_run(char *line) {
     char **sline = &line;
     parsed_command **cmds = NULL;
     int cmds_len = 0;
-    while (*sline != NULL && strlen(*sline) > 0) {
+    while (*sline != NULL) {
         parsed_command *cmd = parse_command(sline);
         if (cmd == NULL) {
             break;
@@ -288,9 +288,12 @@ int exec_or_run(char *line) {
         update_parsed_command(cmd);
         cmds = realloc(cmds, sizeof(parsed_command *) * (cmds_len + 1));
         cmds[cmds_len++] = cmd;
+        printf("sline = %s\n", *sline);
     }
     fprintf(stderr, "got %d cmds\n", cmds_len);
-
+    if (cmds == NULL) {
+        return -1;
+    }
     for (int i = 0; i < cmds_len; i++) {
         if (i + 1 < cmds_len) { // we are not last command
             int pipefd[2];
@@ -298,12 +301,16 @@ int exec_or_run(char *line) {
                 perror("pipe");
                 goto out;
             }
-            if (cmds[i]->stdout != STDOUT_FILENO)
-                close(cmds[i]->stdout);
-            cmds[i]->stdout = pipefd[1];
-            if (cmds[i + 1]->stdin != STDIN_FILENO)
-                close(cmds[i + 1]->stdin);
-            cmds[i + 1]->stdin = pipefd[0];
+            if (cmds[i] != NULL) {
+                if (cmds[i]->stdout != STDOUT_FILENO)
+                    close(cmds[i]->stdout);
+                cmds[i]->stdout = pipefd[1];
+                if (cmds[i + 1] != NULL) {
+                    if (cmds[i + 1]->stdin != STDIN_FILENO)
+                        close(cmds[i + 1]->stdin);
+                    cmds[i + 1]->stdin = pipefd[0];
+                }
+            }
         }
     }
 
@@ -314,13 +321,11 @@ int exec_or_run(char *line) {
     }
 
     out:
-    if (cmds != NULL) {
-        for (int i = 0; i < cmds_len; i++) {
-            if (cmds[i] != NULL)
-                parsed_command_cleanup(cmds[i]);
-        }
-        free(cmds);
+    for (int i = 0; i < cmds_len; i++) {
+        if (cmds[i] != NULL)
+            parsed_command_cleanup(cmds[i]);
     }
+    free(cmds);
 }
 
 int do_fork_exec(parsed_command *cmd) {
@@ -338,36 +343,36 @@ int do_fork_exec(parsed_command *cmd) {
         }
     }
     fprintf(stderr, "command = %s\n", cmd->cmd);
+    if (func != NULL) {
+        return func((const char **) cmd->args);
+    }
     int pid = fork();
     if (pid == -1) {
         perror("fork()");
         return -1;
     }
     if (pid == 0) {
+        printf("execing %s\n", cmd->cmd);
         if (cmd->stdin != STDIN_FILENO) {
-            close(STDIN_FILENO);
             dup2(cmd->stdin, STDIN_FILENO);
         }
         if (cmd->stdout != STDOUT_FILENO) {
-            close(STDOUT_FILENO);
             dup2(cmd->stdout, STDOUT_FILENO);
         }
         if (cmd->stderr != STDERR_FILENO) {
-            close(STDERR_FILENO);
             dup2(cmd->stderr, STDERR_FILENO);
         }
         if (cmd->nargs > cmd->max_args) {
             free(cmd->args[cmd->max_args]);
             cmd->args[cmd->max_args] = NULL;
         }
-        if (func != NULL) {
-            exit(func((const char **)cmd->args));
-        } else {
-            execvp(cmd->cmd, cmd->args);
-            perror("execvp");
-        }
+        execvp(cmd->cmd, cmd->args);
+        perror("execvp");
         exit(-1);
     } else {
+        if (cmd->background) {
+            return 0;
+        }
         int wstatus = 0;
         if (waitpid(pid, &wstatus, 0) == -1) {
             perror("waitpid");
@@ -378,62 +383,9 @@ int do_fork_exec(parsed_command *cmd) {
         } else {
             return -1;
         }
-
     }
 }
 
-//
-//
-//    for (int i = 0; i < sizeof(commands) / sizeof(built_in_cmd); i++) {
-//        if (strncmp(*tokens, commands[i].command, strlen(*tokens)) == 0) {
-//            if (token_count - 1 > commands[i].max_args || token_count - 1 < commands[i].min_args) {
-//                fprintf(stderr, "Insuffient number of arguments (%d) for command %s\r\n", tokens - 1,
-//                        commands[i].command);
-//                ret = -1;
-//                goto out;
-//            }
-//            char *arg = NULL;
-//            for (int i = 1; i < token_count; i++) {
-//                int len = strlen(tokens[i]);
-//                if (arg == NULL) {
-//                    arg = malloc(len + 1);
-//                    memset(arg, 0, len + 1);
-//                    strncpy(arg, tokens[i], len);
-//                } else {
-//                    int arg_len = strlen(arg);
-//                    arg = realloc(arg, arg_len + len + 2);
-//                    arg[arg_len] = ' ';
-//                    strncpy(&arg[arg_len + 1], tokens[i], len);
-//                    arg[arg_len + len + 1] = 0;
-//                }
-//            }
-//            ret = commands[i].func(arg);
-//            free(arg);
-//            goto out;
-//        }
-//    }
-//    // now exec the command
-//    int pid = fork();
-//    if (pid == 0) {
-//        execvp(*tokens, tokens);
-//        perror("execvp failed");
-//        exit(-1);
-//    } else {
-//        if (pid == waitpid(pid, NULL, 0)) {
-//            goto out;
-//        }
-//    }
-//    out:
-//    for (int i = 0; i < token_count; i++)
-//        free(tokens[i]);
-//    free(tokens);
-//
-//    return ret;
-//}
-
-void exec_command(parsed_command *cmd) {
-
-}
 
 void prepare_prompt(void) {
     char cwd[FILENAME_MAX];
