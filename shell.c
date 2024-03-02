@@ -6,9 +6,23 @@ static struct termios original;
 static char *prompt = NULL;
 static int prompt_len = 0;
 
+static char *prev_input_line = NULL;
+static int prev_input_len;
+
+static char *next_input_line = NULL;
+static int next_input_len;
+
 static char *input_line = NULL;
 static int input_len;
 static int input_cur;
+
+static built_in_cmd commands[] = {
+        {cmd_cd,   0, 1, "cd"},
+        {cmd_exit, 0, 1, "exit"},
+        {cmd_pwd,  0, 0, "pwd"},
+        {cmd_test,  0, 2, "test"},
+        {cmd_exec,  0, 3, "exec"}
+};
 
 void refresh() {
     write(STDOUT_FILENO, "\x1b[2K\x1b[0G", 8);
@@ -25,7 +39,23 @@ void refresh() {
     fflush(stdout);
 }
 
+void update_prev_and_next_cmd(void) {
+    prev_input_len = 0;
+    next_input_line = 0;
+    if (prev_input_line != NULL) {
+        free(prev_input_line);
+    }
+    if(next_input_line != NULL) {
+        free(next_input_line);
+    }
+    if (input_line != NULL) {
+        prev_input_line = strdup(input_line);
+        prev_input_len = input_len;
+    }
+}
+
 void new_input() {
+    update_prev_and_next_cmd();
     if (input_line != NULL) {
         free(input_line);
     }
@@ -53,6 +83,37 @@ void append(char c) {
         free(tmp);
     }
 }
+
+
+void update_cur_input_after_arrow(void) {
+    input_cur = input_len + prompt_len + 1;
+}
+
+void up() {
+    if (prev_input_line != NULL) {
+        next_input_line = input_line;
+        next_input_len = input_len;
+        input_line = prev_input_line;
+        input_len = prev_input_len;
+        prev_input_line = NULL;
+        prev_input_len = 0;
+        update_cur_input_after_arrow();
+    }
+}
+
+
+void down() {
+    if (next_input_line != NULL) {
+        prev_input_line = input_line;
+        prev_input_len = input_len;
+        input_line = next_input_line;
+        input_len = next_input_len;
+        next_input_line = NULL;
+        next_input_len = 0;
+        update_cur_input_after_arrow();
+    }
+}
+
 
 void left() {
     input_cur--;
@@ -129,7 +190,6 @@ int main() {
             if (n == 0) {
                 continue;
             }
-            //printf("gotchar: %d\n", c);
             switch (c) {
                 case 3: // CTRL+C
                     new_input();
@@ -151,6 +211,21 @@ int main() {
                 case 8:
                 case 127: // BACKSPACE
                     backspace();
+                    break;
+                case 23: // CTRL+W
+                {
+                    int last_space = 0;
+
+                    int i;
+                    for(i = input_len - 1; i >= 0; i--) {
+                        if(input_line[i] == ' ') {
+                            last_space = i;
+                            break;
+                        }
+                    }
+                    memmove(&input_line[last_space], "\0", last_space);
+                    input_len = last_space;
+                }
                     break;
                 case 27: // ESCAPE STUFF
                 {
@@ -176,6 +251,12 @@ int main() {
                                     break;
                                 case 'F':
                                     end();
+                                    break;
+                                case 'A':
+                                    up();
+                                    break;
+                                case 'B':
+                                    down();
                                     break;
                                 default:
                                     break;
@@ -437,6 +518,14 @@ int cmd_test(const char **args) {
     return 0;
 }
 
+int cmd_exec(const char ** _any) {
+    char **argv = (char **)&_any[1];
+    execvp(*argv, argv);
+    perror("exec error");
+    return -1;
+}
+
+
 int exec_or_run(char *line) {
     char **sline = &line;
     parsed_command **cmds = NULL;
@@ -448,6 +537,9 @@ int exec_or_run(char *line) {
         }
         update_parsed_command(cmd);
         cmds = realloc(cmds, sizeof(parsed_command *) * (cmds_len + 1));
+	if (cmds == NULL) {
+	    return -1;
+	}
         cmds[cmds_len++] = cmd;
     }
     if (cmds == NULL) {
