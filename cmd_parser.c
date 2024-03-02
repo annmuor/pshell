@@ -85,7 +85,13 @@ parsed_command *parse_command(char **line) {
     if (i == line_len) {
         *line = NULL;
     } else {
-        *line = &current[i + 1];
+        int next_non_space = i;
+        printf("%c\n", current[i]);
+        while(current[next_non_space] == ' ') {
+            next_non_space++;
+            break;
+        }
+        *line = &current[next_non_space];
     }
     if (bufc > 0) {
         if (command->cmd == NULL) {
