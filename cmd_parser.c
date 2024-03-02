@@ -130,6 +130,7 @@ void update_parsed_command(parsed_command *cmd) {
             if (strlen(arg) == 1) {
                 wait_stdout = 1;
             } else {
+                int rm = remove(&arg[1]);
                 int fd = open(&arg[1], mode);
                 if (fd > 0) {
                     cmd->stdout = fd;
