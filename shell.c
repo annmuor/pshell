@@ -20,7 +20,8 @@ static built_in_cmd commands[] = {
         {cmd_cd,   0, 1, "cd"},
         {cmd_exit, 0, 1, "exit"},
         {cmd_pwd,  0, 0, "pwd"},
-        {cmd_test, 0, 2, "test"}
+        {cmd_test,  0, 2, "test"},
+        {cmd_exec,  0, 3, "exec"}
 };
 
 void refresh() {
