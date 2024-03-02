@@ -275,6 +275,127 @@ int cmd_pwd(const char **_any) {
     return 0;
 }
 
+int cmd_test(const char **args) {
+    const char *arg1 = args[1];
+    printf("Test!\n");
+    // 0 arguments:
+    // Exit false(1)
+    if (arg1 == NULL) {
+        return 1;
+    }
+    const char *arg2 = args[2];
+
+    // 1 argument
+    // Exit true(0) if $1 is not null; otherwise, exit false.
+    if (arg2 == NULL) {
+        return 0;
+    }
+    const char *arg3 = args[3];
+
+    // 2 arguments:
+    // If $1 is '!', exit true if $2 is null, false if $2 is not null.
+    // If $1 is a unary primary, exit true if the unary test is true, false if the unary test is false.
+    // Otherwise, produce unspecified results
+    if (arg3 == NULL) {
+        if (strcmp(arg1, "!")) {
+            return 1;
+        }
+        if (strlen(arg1) != 2) {
+            printf("Unary primary should consist of two characters!\n");
+            return 1;
+        }
+        if (arg1[0] != '-') {
+            printf("Unary primary should start with '-'!\n");
+        }
+        switch(arg1[1]) {
+            case 'b':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'c':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'd':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'e':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'f':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'g':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'h':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'L':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'n':
+                if (strlen(arg2) == 0) {
+                    return 1;
+                }
+                return 0;
+            case 'p':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'r':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'S':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 's':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 't':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'u':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'w':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'x':
+                printf("%s is not implemented", arg1);
+                return 1;
+            case 'z':
+                if (strlen(arg2) == 0) {
+                    return 0;
+                }
+                return 1;
+            default:
+                printf("%s unary primary is not in POSIX standart!", arg1);
+                return 1;
+        }
+        printf("The command is not implemented: %s\n", arg1);
+        return 1;
+    }
+    
+    const char *arg4 = args[4];
+
+    // 3 arguments:
+    // If $2 is a binary primary, perform the binary test of $1 and $3.
+    // If $1 is '!', negate the two-argument test of $2 and $3.
+    // If  $1  is '(' and $3 is ')', perform the unary test of $2. On systems that do not 
+    // support the XSI option, the results are unspecified if $1 is '(' and $3 is ')'.
+    // Otherwise, produce unspecified results
+    if (arg4 == NULL) {
+        if (strcmp(arg1, "!")) {
+            const char *new_args[4] = {args[0], args[2], args[3], NULL};
+            if (cmd_test(new_args) == 0) {
+                return 1;
+            }
+            else {
+                return 0;
+            }
+        }
+    }
+
+    return 0;
+}
 
 int exec_or_run(char *line) {
     char **sline = &line;
