@@ -158,6 +158,7 @@ void update_parsed_command(parsed_command *cmd) {
             if (strlen(arg) == 2) {
                 wait_stderr = 1;
             } else {
+                int rm = remove(&arg[2]);
                 int fd = open(&arg[2], mode);
                 if (fd > 0) {
                     cmd->stderr = fd;
