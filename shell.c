@@ -311,9 +311,7 @@ int exec_or_run(char *line) {
         update_parsed_command(cmd);
         cmds = realloc(cmds, sizeof(parsed_command *) * (cmds_len + 1));
         cmds[cmds_len++] = cmd;
-        printf("sline = %s\n", *sline);
     }
-    fprintf(stderr, "got %d cmds\n", cmds_len);
     if (cmds == NULL) {
         return -1;
     }
@@ -339,7 +337,10 @@ int exec_or_run(char *line) {
 
     for (int i = 0; i < cmds_len; i++) {
         if (do_fork_exec(cmds[i]) == -1) {
+            fprintf(stderr, "command %s returned -1\n", cmds[i]->cmd);
             goto out; // we don't continue if something is broken
+        } else {
+            fprintf(stderr, "command %s returned 0\n", cmds[i]->cmd);
         }
     }
 
@@ -365,7 +366,11 @@ int do_fork_exec(parsed_command *cmd) {
             }
         }
     }
-    fprintf(stderr, "command = %s\n", cmd->cmd);
+    fprintf(stderr, "command = [%s] ", cmd->cmd);
+    fprintf(stderr, "args = %d ", cmd->max_args);
+    fprintf(stderr, "stdin = %d ", cmd->stdin);
+    fprintf(stderr, "stdout =%d ", cmd->stdout);
+    fprintf(stderr, "\n\n");
     if (func != NULL) {
         return func((const char **) cmd->args);
     }
@@ -393,6 +398,15 @@ int do_fork_exec(parsed_command *cmd) {
         perror("execvp");
         exit(-1);
     } else {
+        if (cmd->stdin != STDIN_FILENO) {
+            close(cmd->stdin);
+        }
+        if (cmd->stdout != STDOUT_FILENO) {
+            close(cmd->stdout);
+        }
+        if (cmd->stderr != STDERR_FILENO) {
+            close(cmd->stderr);
+        }
         if (cmd->background) {
             return 0;
         }
