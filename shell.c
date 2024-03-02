@@ -129,6 +129,7 @@ int main(int argc, char **argv, char **env) {
             if (n == 0) {
                 continue;
             }
+	    //printf("gotchar: %d\n", c);
             switch (c) {
                 case 3: // CTRL+C
                     new_input();
@@ -147,7 +148,7 @@ int main(int argc, char **argv, char **env) {
                     }
                     in_loop = 0;
                     break;
-                case 127: // BACKSPACE
+		case 8: case 127: // BACKSPACE
                     backspace();
                     break;
                 case 27: // ESCAPE STUFF
