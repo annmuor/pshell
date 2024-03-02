@@ -266,6 +266,28 @@ int cmd_exit(const char **args) {
     }
 }
 
+int cmd_test(const char **args) {
+    if (args[1] != NULL) {
+        const char *flag = args[1];
+        if (strcmp(flag, "-e") == 0) {
+            if (args[2] != NULL) {
+                const char *file = args[2];
+                char cwd[FILENAME_MAX];
+                if (getcwd(cwd, FILENAME_MAX) == NULL) {
+                    perror("getcwd failed");
+                    return -1;
+                }
+                if (access(file, F_OK) != -1) {
+                    exit(0);
+                } else {
+                    exit(1);
+                }
+            } else { exit(1); }
+        }
+        // Could be other flags
+    } else { exit(1); }
+}
+
 int cmd_pwd(const char **_any) {
     char cwd[FILENAME_MAX];
     if (getcwd(cwd, FILENAME_MAX) == NULL) {
