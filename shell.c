@@ -71,6 +71,27 @@ void home() {
     input_cur = prompt_len + 1;
 }
 
+int my_isspace(char c){
+    if(c == ' '){
+        return 0;
+    }else{
+        return 1;
+    }
+}
+
+void word_forward() {
+    while (input_cur <= input_len + prompt_len && !my_isspace(input_line[input_cur - prompt_len - 1])) {
+        input_cur++;
+    }
+}
+
+
+void word_backward(){
+    while (input_cur > prompt_len && isspace(input_line[input_cur - prompt_len - 2])) {
+        input_cur--;
+    }
+}
+
 void backspace() {
     int real_cur = input_cur - prompt_len;
     if (real_cur <= 1) {
@@ -129,6 +150,7 @@ int main(int argc, char **argv, char **env) {
             if (n == 0) {
                 continue;
             }
+            //fprintf(stderr, "code == %d\r\n", c);
             switch (c) {
                 case 3: // CTRL+C
                     new_input();
@@ -154,8 +176,15 @@ int main(int argc, char **argv, char **env) {
                 {
                     char code1, code2;
                     if (read(STDIN_FILENO, &code1, 1) != 1) break;
-                    if (read(STDIN_FILENO, &code2, 1) != 1) break;
-                    if (code1 == '[') {
+                    //fprintf(stderr, "code1 = %d, code2 = %d\r\n", code1, code2);
+                    if(code1 == 'f'){
+                        word_forward();
+                        break;
+                    }else if(code1 == 'b'){
+                        word_backward();
+                        break;
+                    }else if (code1 == '[') {
+                        if (read(STDIN_FILENO, &code2, 1) != 1) break;
                         if (code2 >= '0' && code2 <= '9') {
                             if (read(STDIN_FILENO, &code1, 1) != 1) break;
                             if (code1 == '~' && code2 == '3') {
@@ -180,6 +209,7 @@ int main(int argc, char **argv, char **env) {
                             }
                         }
                     } else if (code1 == 'O') {
+                        if (read(STDIN_FILENO, &code2, 1) != 1) break;
                         switch (code2) {
                             case 'H':
                                 home();

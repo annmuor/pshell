@@ -66,6 +66,10 @@ void end();
 
 void home();
 
+void word_forward();
+
+void word_backward();
+
 void backspace();
 
 void delete();
