@@ -140,16 +140,27 @@ int my_isspace(char c){
 }
 
 void word_forward() {
-    while (input_cur <= input_len + prompt_len && !my_isspace(input_line[input_cur - prompt_len - 1])) {
+    if(!my_isspace(input_line[input_cur - prompt_len])){
+        while(input_cur <= input_len + prompt_len && !my_isspace(input_line[input_cur - prompt_len - 1])){
+            input_cur++;
+        }
+    }
+    while (input_cur <= input_len + prompt_len && my_isspace(input_line[input_cur - prompt_len])) {
         input_cur++;
     }
 }
 
 
 void word_backward(){
-    while (input_cur > prompt_len && isspace(input_line[input_cur - prompt_len - 2])) {
+    if(!my_isspace(input_line[input_cur - prompt_len - 1]) || !my_isspace(input_line[input_cur - prompt_len - 2])){
+        while (input_cur > prompt_len + 2 && !my_isspace(input_line[input_cur - prompt_len - 2])) {
+            input_cur--;
+        }
+    }
+    while (input_cur > prompt_len + 2 && my_isspace(input_line[input_cur - prompt_len - 2])) {
         input_cur--;
     }
+    input_cur--;
 }
 
 void backspace() {
