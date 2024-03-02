@@ -136,7 +136,11 @@ int main(int argc, char **argv, char **env) {
                     }
                     break;
                 case 13: // ENTER
-                    line = strdup(input_line);
+                    if(input_len == 0) {
+                      line = strdup("");
+                    } else {
+                      line = strdup(input_line);
+                    }
                     goto line_ready;
                 case 127: // BACKSPACE
                     backspace();
@@ -195,7 +199,9 @@ int main(int argc, char **argv, char **env) {
         refresh();
         raw_mode_off();
         printf("%s\n", line);
-        exec_or_run(line);
+        if(strlen(line) > 0) {
+          exec_or_run(line);
+        }
         free(line);
     }
 }
@@ -267,6 +273,7 @@ int exec_or_run(char *line) {
     char **cur = tokens;
     char *first = strtok(line, " ");
     int ret = 0;
+    memset(tokens, 0, sizeof(char *) * MAX_TOKENS);
     while (first != NULL) {
         *cur = strdup(first);
         token_count++;
