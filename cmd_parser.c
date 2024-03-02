@@ -8,11 +8,11 @@ parsed_command *parse_command(char **line) {
     char buf[MAX_LINE_SIZE];
     int bufc = 0;
     parsed_command *command = malloc(sizeof(parsed_command));
-    memset(buf, 0, MAX_LINE_SIZE);
-    memset(command, 0, sizeof(parsed_command));
     if (command == NULL) {
         return NULL;
     }
+    memset(buf, 0, MAX_LINE_SIZE);
+    memset(command, 0, sizeof(parsed_command));
     command->stdout = STDOUT_FILENO;
     command->stderr = STDERR_FILENO;
     command->stdin = STDIN_FILENO;

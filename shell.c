@@ -10,6 +10,12 @@ static char *input_line = NULL;
 static int input_len;
 static int input_cur;
 
+static built_in_cmd commands[] = {
+        {cmd_cd,   0, 1, "cd"},
+        {cmd_exit, 0, 1, "exit"},
+        {cmd_pwd,  0, 0, "pwd"},
+        {cmd_test, 0, 2, "test"}
+};
 
 void refresh() {
     write(STDOUT_FILENO, "\x1b[2K\x1b[0G", 8);
@@ -97,7 +103,8 @@ void delete() {
     input_cur--;
 }
 
-int main(int argc, char **argv, char **env) {
+
+int main() {
     if (!isatty(STDIN_FILENO)) {
         printf("Primitive Shell works only on TTY\n");
         return -1;
@@ -194,6 +201,7 @@ int main(int argc, char **argv, char **env) {
                         }
                     }
                 }
+                    break;
                 default:
                     if (isprint(c)) {
                         append(c);
@@ -244,10 +252,10 @@ int raw_mode_off(void) {
 
 void exit_function(void) {
     raw_mode_off();
-};
+}
 
 int cmd_cd(const char **args) {
-    char *where = args[1];
+    char *where = (char *) args[1];
     if (where == NULL) {
         where = getenv("HOME");
     }
@@ -287,9 +295,12 @@ int cmd_test(const char **args) {
         }
         // Could be other flags
     } else { return 1; }
+    return 0;
 }
 
-int cmd_pwd(const char **_any) {
+int cmd_pwd(const char **arg) {
+    if (arg == NULL)
+        return -1;
     char cwd[FILENAME_MAX];
     if (getcwd(cwd, FILENAME_MAX) == NULL) {
         perror("getcwd failed");
@@ -351,11 +362,12 @@ int exec_or_run(char *line) {
             parsed_command_cleanup(cmds[i]);
     }
     free(cmds);
+    return 0;
 }
 
 int do_fork_exec(parsed_command *cmd) {
     int (*func)(const char **) = NULL;
-    for (int i = 0; i < sizeof(commands) / sizeof(built_in_cmd); i++) {
+    for (size_t i = 0; i < sizeof(commands) / sizeof(built_in_cmd); i++) {
         if (strcmp(cmd->cmd, commands[i].command) == 0) {
             if (cmd->max_args - 1 > commands[i].max_args || cmd->max_args - 1 < commands[i].min_args) {
                 fprintf(stderr, "Insuffient number of arguments (%d) for command %s\r\n", cmd->max_args,
@@ -449,9 +461,9 @@ void prepare_prompt(void) {
     if (prompt != NULL) {
         free(prompt);
     }
-    prompt = (char *) malloc(FILENAME_MAX);
-    memset(prompt, 0, FILENAME_MAX);
-    snprintf(prompt, FILENAME_MAX, "[%s %s]%c ",
+    prompt = (char *) malloc(FILENAME_MAX * 2);
+    memset(prompt, 0, FILENAME_MAX * 2);
+    snprintf(prompt, FILENAME_MAX * 2, "[%s %s]%c ",
              user, &cwd[cwd_idx], uid == 0 ? '#' : '$');
     prompt_len = strlen(prompt);
 }
