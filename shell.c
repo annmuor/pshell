@@ -189,7 +189,6 @@ int main() {
             if (n == 0) {
                 continue;
             }
-            //printf("gotchar: %d\n", c);
             switch (c) {
                 case 3: // CTRL+C
                     new_input();
@@ -211,6 +210,21 @@ int main() {
                 case 8:
                 case 127: // BACKSPACE
                     backspace();
+                    break;
+                case 23: // CTRL+W
+                {
+                    int last_space = 0;
+
+                    int i;
+                    for(i = input_len - 1; i >= 0; i--) {
+                        if(input_line[i] == ' ') {
+                            last_space = i;
+                            break;
+                        }
+                    }
+                    memmove(&input_line[last_space], "\0", last_space);
+                    input_len = last_space;
+                }
                     break;
                 case 27: // ESCAPE STUFF
                 {
