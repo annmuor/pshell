@@ -10,13 +10,6 @@ static char *input_line = NULL;
 static int input_len;
 static int input_cur;
 
-static built_in_cmd commands[] = {
-        {cmd_cd,   0, 1, "cd"},
-        {cmd_exit, 0, 1, "exit"},
-        {cmd_pwd,  0, 0, "pwd"},
-        {cmd_test, 0, 2, "test"}
-};
-
 void refresh() {
     write(STDOUT_FILENO, "\x1b[2K\x1b[0G", 8);
     if (prompt != NULL)
@@ -275,28 +268,28 @@ int cmd_exit(const char **args) {
     }
 }
 
-int cmd_test(const char **args) {
-    if (args[1] != NULL) {
-        const char *flag = args[1];
-        if (strcmp(flag, "-e") == 0) {
-            if (args[2] != NULL) {
-                const char *file = args[2];
-                char cwd[FILENAME_MAX];
-                if (getcwd(cwd, FILENAME_MAX) == NULL) {
-                    perror("getcwd failed");
-                    return -1;
-                }
-                if (access(file, F_OK) != -1) {
-                    return 0;
-                } else {
-                    return 1;
-                }
-            } else { return 1; }
-        }
-        // Could be other flags
-    } else { return 1; }
-    return 0;
-}
+// int cmd_test(const char **args) {
+//     if (args[1] != NULL) {
+//         const char *flag = args[1];
+//         if (strcmp(flag, "-e") == 0) {
+//             if (args[2] != NULL) {
+//                 const char *file = args[2];
+//                 char cwd[FILENAME_MAX];
+//                 if (getcwd(cwd, FILENAME_MAX) == NULL) {
+//                     perror("getcwd failed");
+//                     return -1;
+//                 }
+//                 if (access(file, F_OK) != -1) {
+//                     return 0;
+//                 } else {
+//                     return 1;
+//                 }
+//             } else { return 1; }
+//         }
+//         // Could be other flags
+//     } else { return 1; }
+//     return 0;
+// }
 
 int cmd_pwd(const char **arg) {
     if (arg == NULL)
@@ -312,7 +305,6 @@ int cmd_pwd(const char **arg) {
 
 int cmd_test(const char **args) {
     const char *arg1 = args[1];
-    printf("Test!\n");
     // 0 arguments:
     // Exit false(1)
     if (arg1 == NULL) {
@@ -332,7 +324,7 @@ int cmd_test(const char **args) {
     // If $1 is a unary primary, exit true if the unary test is true, false if the unary test is false.
     // Otherwise, produce unspecified results
     if (arg3 == NULL) {
-        if (strcmp(arg1, "!")) {
+        if (strcmp(arg1, "!") == 0) {
             return 1;
         }
         if (strlen(arg1) != 2) {
@@ -342,30 +334,43 @@ int cmd_test(const char **args) {
         if (arg1[0] != '-') {
             printf("Unary primary should start with '-'!\n");
         }
+        printf("switch\n");
         switch(arg1[1]) {
             case 'b':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'c':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'd':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'e':
-                printf("%s is not implemented", arg1);
-                return 1;
+                printf("e\n");
+                if (args[2] != NULL) {
+                    const char *file = args[2];
+                    char cwd[FILENAME_MAX];
+                    if (getcwd(cwd, FILENAME_MAX) == NULL) {
+                        perror("getcwd failed");
+                        return -1;
+                    }
+                    if (access(file, F_OK) != -1) {
+                        return 0;
+                    } else {
+                        return 1;
+                    }
+                } else { return 1; }
             case 'f':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'g':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'h':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'L':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'n':
                 if (strlen(arg2) == 0) {
@@ -373,28 +378,28 @@ int cmd_test(const char **args) {
                 }
                 return 0;
             case 'p':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'r':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'S':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 's':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 't':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'u':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'w':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'x':
-                printf("%s is not implemented", arg1);
+                printf("%s is not implemented\n", arg1);
                 return 1;
             case 'z':
                 if (strlen(arg2) == 0) {
@@ -469,11 +474,12 @@ int exec_or_run(char *line) {
     }
 
     for (int i = 0; i < cmds_len; i++) {
-        if (do_fork_exec(cmds[i]) == -1) {
+        int exit_code = do_fork_exec(cmds[i]);
+        if (exit_code == -1) {
             fprintf(stderr, "command %s returned -1\n", cmds[i]->cmd);
             goto out; // we don't continue if something is broken
         } else {
-            fprintf(stderr, "command %s returned 0\n", cmds[i]->cmd);
+            fprintf(stderr, "command %s returned %d\n", cmds[i]->cmd, exit_code);
         }
     }
 
