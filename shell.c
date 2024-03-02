@@ -384,6 +384,14 @@ int cmd_pwd(const char **arg) {
 }
 
 
+int cmd_exec(const char ** _any) {
+    char **argv = (char **)&_any[1];
+    execvp(*argv, argv);
+    perror("exec error");
+    return -1;
+}
+
+
 int exec_or_run(char *line) {
     char **sline = &line;
     parsed_command **cmds = NULL;
