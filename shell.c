@@ -69,7 +69,7 @@ void append(char c) {
     if (input_line == NULL) {
         new_input();
     }
-    int real_cur = input_cur - prompt_len;
+    int real_cur = input_cur - prompt_len - 1;
     // magic here!
     if (real_cur > input_len) {
         input_line[input_len++] = c;
@@ -148,19 +148,19 @@ void word_forward() {
     while (input_cur <= input_len + prompt_len && my_isspace(input_line[input_cur - prompt_len])) {
         input_cur++;
     }
+    input_cur++;
 }
 
 
 void word_backward(){
     if(!my_isspace(input_line[input_cur - prompt_len - 1]) || !my_isspace(input_line[input_cur - prompt_len - 2])){
-        while (input_cur > prompt_len + 2 && !my_isspace(input_line[input_cur - prompt_len - 2])) {
+        while (input_cur > prompt_len + 1 && !my_isspace(input_line[input_cur - prompt_len - 2])) {
             input_cur--;
         }
     }
-    while (input_cur > prompt_len + 2 && my_isspace(input_line[input_cur - prompt_len - 2])) {
+    while (input_cur > prompt_len + 1 && my_isspace(input_line[input_cur - prompt_len - 2])) {
         input_cur--;
     }
-    input_cur--;
 }
 
 void backspace() {
@@ -251,13 +251,18 @@ int main() {
 
                     int i;
                     for(i = input_len - 1; i >= 0; i--) {
-                        if(input_line[i] == ' ') {
+                        if(input_line[i] == ' ' || i == 0) {
                             last_space = i;
                             break;
                         }
                     }
-                    memmove(&input_line[last_space], "\0", last_space);
-                    input_len = last_space;
+                    if(last_space != 0) {
+                        memmove(&input_line[last_space], "\0", last_space);
+                        input_len = last_space;
+                    }else{
+                        input_line = NULL;
+                        input_len = 0;
+                    }
                 }
                     break;
                 case 27: // ESCAPE STUFF
