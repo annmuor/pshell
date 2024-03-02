@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.28)
 project(pshell C)
 
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD 99)
 
 include_directories(.)
 
 add_executable(pshell
         shell.c
-        shell.h)
+        shell.h
+        cmd_parser.c)
