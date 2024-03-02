@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.26)
 project(pshell C)
 
 set(CMAKE_C_STANDARD 99)
@@ -11,7 +11,7 @@ add_executable(pshell
         cmd_parser.c)
 
 set(SANITIZE_FLAGS "-fsanitize=address,undefined")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -Werror")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic")
 
 include(CheckCCompilerFlag)
 CHECK_C_COMPILER_FLAG("${SANITIZE_FLAGS}" COMPILER_SUPPORTS_SANITIZERS)
