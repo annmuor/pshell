@@ -125,11 +125,10 @@ void update_parsed_command(parsed_command *cmd) {
             }
         } else if (strncmp(arg, ">", 1) == 0) {
             started_special = 1;
-            mode = O_CREAT | O_WRONLY;
+            mode = O_CREAT | O_WRONLY | O_TRUNC;
             if (strlen(arg) == 1) {
                 wait_stdout = 1;
             } else {
-                int rm = remove(&arg[1]);
                 int fd = open(&arg[1], mode);
                 if (fd > 0) {
                     cmd->stdout = fd;
@@ -154,11 +153,10 @@ void update_parsed_command(parsed_command *cmd) {
 
         } else if (strncmp(arg, "2>", 2) == 0) {
             started_special = 1;
-            mode = O_CREAT | O_WRONLY;
+            mode = O_CREAT | O_WRONLY | O_TRUNC;
             if (strlen(arg) == 2) {
                 wait_stderr = 1;
             } else {
-                int rm = remove(&arg[2]);
                 int fd = open(&arg[2], mode);
                 if (fd > 0) {
                     cmd->stderr = fd;
