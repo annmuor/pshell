@@ -5,24 +5,36 @@
 #include <ctype.h>
 #include <sys/wait.h>
 #include <termios.h>
+#include <fcntl.h>
 
 #define LINE_MAX_SIZE 65535
-
+#define MAX_LINE_SIZE 4096
 #define MAX_TOKENS 128
 
 typedef struct {
-    int (*func)(const char *args);
+    int (*func)(const char **args);
 
     int min_args;
     int max_args;
     char *command;
 } built_in_cmd;
 
-int cmd_cd(const char *);
+typedef struct {
+    char *cmd;
+    char **args;
+    int nargs;
+    int max_args;
+    int stdout;
+    int stderr;
+    int stdin;
+    int background;
+} parsed_command;
 
-int cmd_exit(const char *);
+int cmd_cd(const char **);
 
-int cmd_pwd(const char *);
+int cmd_exit(const char **);
+
+int cmd_pwd(const char **);
 
 static built_in_cmd commands[] = {
         {cmd_cd,   0, 1, "cd"},
@@ -58,3 +70,10 @@ void backspace();
 
 void delete();
 
+parsed_command *parse_command(char **);
+
+void update_parsed_command(parsed_command *);
+
+void parsed_command_cleanup(parsed_command *);
+
+int do_fork_exec(parsed_command *cmd);

@@ -102,19 +102,23 @@ int main(int argc, char **argv, char **env) {
         printf("Primitive Shell works only on TTY\n");
         return -1;
     }
-    if (strncmp(getenv("TERM"), "xterm", 5) != 0) {
-        printf("Primitive Shell works only with xterm shells\n");
-        return -1;
+    {
+        char *tmp = getenv("TERM");
+        if (tmp != NULL && strcasestr(tmp, "xterm") == NULL) {
+            printf("Primitive Shell works only with xterm shells\n");
+            return -1;
+        }
     }
 
     while (1) {
         char *line = NULL;
+        int in_loop = 1;
         if (raw_mode_on() == -1) {
             perror("raw_mode_on() failed, edit disabled");
             return -1;
         }
         prepare_prompt();
-        while (1) {
+        while (in_loop) {
             char c;
             ssize_t n;
             refresh();
@@ -132,16 +136,17 @@ int main(int argc, char **argv, char **env) {
                 case 4: // CTRL+D
                     if (input_len == 0) {
                         line = strdup("exit");
-                        goto line_ready;
+                        in_loop = 0;
                     }
                     break;
                 case 13: // ENTER
-                    if(input_len == 0) {
-                      line = strdup("");
+                    if (input_len == 0) {
+                        line = strdup("");
                     } else {
-                      line = strdup(input_line);
+                        line = strdup(input_line);
                     }
-                    goto line_ready;
+                    in_loop = 0;
+                    break;
                 case 127: // BACKSPACE
                     backspace();
                     break;
@@ -187,22 +192,24 @@ int main(int argc, char **argv, char **env) {
                         }
                     }
                 }
-
                 default:
                     if (isprint(c)) {
                         append(c);
                     }
             }
         }
-        line_ready:
         new_input();
         refresh();
         raw_mode_off();
-        printf("%s\n", line);
-        if(strlen(line) > 0) {
-          exec_or_run(line);
+        if (line != NULL && strlen(line) > 0) {
+            printf("%s\n", line);
+            exec_or_run(line);
+        } else {
+            printf("\n");
         }
-        free(line);
+        if (line != NULL) {
+            free(line);
+        }
     }
 }
 
@@ -237,7 +244,8 @@ void exit_function(void) {
     raw_mode_off();
 };
 
-int cmd_cd(const char *where) {
+int cmd_cd(const char **args) {
+    char *where = args[1];
     if (where == NULL) {
         where = getenv("HOME");
     }
@@ -248,16 +256,16 @@ int cmd_cd(const char *where) {
     return 0;
 }
 
-int cmd_exit(const char *any) {
-    if (any != NULL) {
-        int code = atoi(any);
+int cmd_exit(const char **args) {
+    if (args[1] != NULL) {
+        int code = atoi(args[1]);
         exit(code);
     } else {
         exit(0);
     }
 }
 
-int cmd_pwd(const char *_any) {
+int cmd_pwd(const char **_any) {
     char cwd[FILENAME_MAX];
     if (getcwd(cwd, FILENAME_MAX) == NULL) {
         perror("getcwd failed");
@@ -267,68 +275,164 @@ int cmd_pwd(const char *_any) {
     return 0;
 }
 
+
 int exec_or_run(char *line) {
-    char **tokens = malloc(sizeof(char *) * MAX_TOKENS);
-    size_t token_count = 0;
-    char **cur = tokens;
-    char *first = strtok(line, " ");
-    int ret = 0;
-    memset(tokens, 0, sizeof(char *) * MAX_TOKENS);
-    while (first != NULL) {
-        *cur = strdup(first);
-        token_count++;
-        cur++;
-        if (token_count == MAX_TOKENS) {
+    char **sline = &line;
+    parsed_command **cmds = NULL;
+    int cmds_len = 0;
+    while (*sline != NULL && strlen(*sline) > 0) {
+        parsed_command *cmd = parse_command(sline);
+        if (cmd == NULL) {
             break;
         }
-        first = strtok(NULL, " ");
+        update_parsed_command(cmd);
+        cmds = realloc(cmds, sizeof(parsed_command *) * (cmds_len + 1));
+        cmds[cmds_len++] = cmd;
     }
+    fprintf(stderr, "got %d cmds\n", cmds_len);
 
-    for (int i = 0; i < sizeof(commands) / sizeof(built_in_cmd); i++) {
-        if (strncmp(*tokens, commands[i].command, strlen(*tokens)) == 0) {
-            if (token_count - 1 > commands[i].max_args || token_count - 1 < commands[i].min_args) {
-                fprintf(stderr, "Insuffient number of arguments (%d) for command %s\r\n", tokens - 1,
-                        commands[i].command);
-                ret = -1;
+    for (int i = 0; i < cmds_len; i++) {
+        if (i + 1 < cmds_len) { // we are not last command
+            int pipefd[2];
+            if (pipe(pipefd) == -1) {
+                perror("pipe");
                 goto out;
             }
-            char *arg = NULL;
-            for (int i = 1; i < token_count; i++) {
-                int len = strlen(tokens[i]);
-                if (arg == NULL) {
-                    arg = malloc(len + 1);
-                    memset(arg, 0, len + 1);
-                    strncpy(arg, tokens[i], len);
-                } else {
-                    int arg_len = strlen(arg);
-                    arg = realloc(arg, arg_len + len + 2);
-                    arg[arg_len] = ' ';
-                    strncpy(&arg[arg_len + 1], tokens[i], len);
-                    arg[arg_len + len + 1] = 0;
-                }
-            }
-            ret = commands[i].func(arg);
-            free(arg);
-            goto out;
+            if (cmds[i]->stdout != STDOUT_FILENO)
+                close(cmds[i]->stdout);
+            cmds[i]->stdout = pipefd[1];
+            if (cmds[i + 1]->stdin != STDIN_FILENO)
+                close(cmds[i + 1]->stdin);
+            cmds[i + 1]->stdin = pipefd[0];
         }
     }
-    // now exec the command
+
+    for (int i = 0; i < cmds_len; i++) {
+        if (do_fork_exec(cmds[i]) == -1) {
+            goto out; // we don't continue if something is broken
+        }
+    }
+
+    out:
+    if (cmds != NULL) {
+        for (int i = 0; i < cmds_len; i++) {
+            if (cmds[i] != NULL)
+                parsed_command_cleanup(cmds[i]);
+        }
+        free(cmds);
+    }
+}
+
+int do_fork_exec(parsed_command *cmd) {
+    int (*func)(const char **) = NULL;
+    for (int i = 0; i < sizeof(commands) / sizeof(built_in_cmd); i++) {
+        if (strcmp(cmd->cmd, commands[i].command) == 0) {
+            if (cmd->max_args > commands[i].max_args || cmd->max_args < commands[i].min_args) {
+                fprintf(stderr, "Insuffient number of arguments (%d) for command %s\r\n", cmd->max_args,
+                        commands[i].command);
+                return -1;
+            } else {
+                func = commands[i].func;
+                break;
+            }
+        }
+    }
+    fprintf(stderr, "command = %s\n", cmd->cmd);
     int pid = fork();
+    if (pid == -1) {
+        perror("fork()");
+        return -1;
+    }
     if (pid == 0) {
-        execvp(*tokens, tokens);
-        perror("execvp failed");
+        if (cmd->stdin != STDIN_FILENO) {
+            close(STDIN_FILENO);
+            dup2(cmd->stdin, STDIN_FILENO);
+        }
+        if (cmd->stdout != STDOUT_FILENO) {
+            close(STDOUT_FILENO);
+            dup2(cmd->stdout, STDOUT_FILENO);
+        }
+        if (cmd->stderr != STDERR_FILENO) {
+            close(STDERR_FILENO);
+            dup2(cmd->stderr, STDERR_FILENO);
+        }
+        if (cmd->nargs > cmd->max_args) {
+            free(cmd->args[cmd->max_args]);
+            cmd->args[cmd->max_args] = NULL;
+        }
+        if (func != NULL) {
+            exit(func((const char **)cmd->args));
+        } else {
+            execvp(cmd->cmd, cmd->args);
+            perror("execvp");
+        }
         exit(-1);
     } else {
-        if (pid == waitpid(pid, NULL, 0)) {
-            goto out;
+        int wstatus = 0;
+        if (waitpid(pid, &wstatus, 0) == -1) {
+            perror("waitpid");
+            return -1;
         }
-    }
-    out:
-    for (int i = 0; i < token_count; i++)
-        free(tokens[i]);
-    free(tokens);
+        if (WIFEXITED(wstatus)) {
+            return WEXITSTATUS(wstatus);
+        } else {
+            return -1;
+        }
 
-    return ret;
+    }
+}
+
+//
+//
+//    for (int i = 0; i < sizeof(commands) / sizeof(built_in_cmd); i++) {
+//        if (strncmp(*tokens, commands[i].command, strlen(*tokens)) == 0) {
+//            if (token_count - 1 > commands[i].max_args || token_count - 1 < commands[i].min_args) {
+//                fprintf(stderr, "Insuffient number of arguments (%d) for command %s\r\n", tokens - 1,
+//                        commands[i].command);
+//                ret = -1;
+//                goto out;
+//            }
+//            char *arg = NULL;
+//            for (int i = 1; i < token_count; i++) {
+//                int len = strlen(tokens[i]);
+//                if (arg == NULL) {
+//                    arg = malloc(len + 1);
+//                    memset(arg, 0, len + 1);
+//                    strncpy(arg, tokens[i], len);
+//                } else {
+//                    int arg_len = strlen(arg);
+//                    arg = realloc(arg, arg_len + len + 2);
+//                    arg[arg_len] = ' ';
+//                    strncpy(&arg[arg_len + 1], tokens[i], len);
+//                    arg[arg_len + len + 1] = 0;
+//                }
+//            }
+//            ret = commands[i].func(arg);
+//            free(arg);
+//            goto out;
+//        }
+//    }
+//    // now exec the command
+//    int pid = fork();
+//    if (pid == 0) {
+//        execvp(*tokens, tokens);
+//        perror("execvp failed");
+//        exit(-1);
+//    } else {
+//        if (pid == waitpid(pid, NULL, 0)) {
+//            goto out;
+//        }
+//    }
+//    out:
+//    for (int i = 0; i < token_count; i++)
+//        free(tokens[i]);
+//    free(tokens);
+//
+//    return ret;
+//}
+
+void exec_command(parsed_command *cmd) {
+
 }
 
 void prepare_prompt(void) {
