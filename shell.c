@@ -552,16 +552,18 @@ int exec_or_run(char *line) {
                 perror("pipe");
                 goto out;
             }
-            if (cmds[i] != NULL) {
+
+	    if (cmds[i] != NULL && cmds[i + 1] != NULL) {
                 if (cmds[i]->stdout != STDOUT_FILENO)
                     close(cmds[i]->stdout);
+                if (cmds[i + 1]->stdin != STDIN_FILENO)
+                    close(cmds[i + 1]->stdin);
                 cmds[i]->stdout = pipefd[1];
-                if (cmds[i + 1] != NULL) {
-                    if (cmds[i + 1]->stdin != STDIN_FILENO)
-                        close(cmds[i + 1]->stdin);
-                    cmds[i + 1]->stdin = pipefd[0];
-                }
-            }
+                cmds[i + 1]->stdin = pipefd[0];
+            } else {
+	        close(pipefd[0]);
+		close(pipefd[1]);
+	    }
         }
     }
 
