@@ -279,14 +279,14 @@ int cmd_test(const char **args) {
                     return -1;
                 }
                 if (access(file, F_OK) != -1) {
-                    exit(0);
+                    return 0;
                 } else {
-                    exit(1);
+                    return 1;
                 }
-            } else { exit(1); }
+            } else { return 1; }
         }
         // Could be other flags
-    } else { exit(1); }
+    } else { return 1; }
 }
 
 int cmd_pwd(const char **_any) {
