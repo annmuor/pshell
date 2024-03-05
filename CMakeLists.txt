@@ -10,8 +10,14 @@ add_executable(pshell
         shell.h
         cmd_parser.c)
 
+target_compile_options(pshell
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+)
+
 set(SANITIZE_FLAGS "-fsanitize=address,undefined")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic")
 
 include(CheckCCompilerFlag)
 CHECK_C_COMPILER_FLAG("${SANITIZE_FLAGS}" COMPILER_SUPPORTS_SANITIZERS)
