@@ -17,13 +17,22 @@ target_compile_options(pshell
         -Wpedantic
 )
 
-set(SANITIZE_FLAGS "-fsanitize=address,undefined")
-
 include(CheckCCompilerFlag)
-CHECK_C_COMPILER_FLAG("${SANITIZE_FLAGS}" COMPILER_SUPPORTS_SANITIZERS)
-if(COMPILER_SUPPORTS_SANITIZERS)
-    message(STATUS "Compiler supports sanitizers")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZE_FLAGS}")
+
+check_c_compiler_flag("-fsanitize=address" COMPILER_SUPPORTS_ASAN)
+if(COMPILER_SUPPORTS_ASAN)
+    message(STATUS "Compiler supports AddressSanitizer")
+    target_compile_options(pshell PRIVATE -fsanitize=address)
+    target_link_libraries(pshell PRIVATE -fsanitize=address)
 else()
-    message(WARNING "Compiler does not support sanitizers")
+    message(WARNING "Compiler does not support AddressSanitizer")
+endif()
+
+check_c_compiler_flag("-fsanitize=undefined" COMPILER_SUPPORTS_UBSAN)
+if(COMPILER_SUPPORTS_UBSAN)
+    message(STATUS "Compiler supports UndefinedBehaviorSanitizer")
+    target_compile_options(pshell PRIVATE -fsanitize=undefined)
+    target_link_libraries(pshell PRIVATE -fsanitize=undefined)
+else()
+    message(WARNING "Compiler does not support UndefinedBehaviorSanitizer")
 endif()
